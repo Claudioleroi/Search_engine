@@ -31,30 +31,40 @@ def search_files(query, base_path):
 # Fonction pour gérer la recherche et afficher les résultats
 def perform_search():
     query = entry.get()
+    log_text.pack(fill=tk.X)  # Afficher la zone des logs
     log_text.delete(1.0, tk.END)
     log_text.insert(tk.END, "Recherche en cours...\n", "log")
 
-    # Lancer la recherche en arrière-plan
     def search_and_display():
         results = search_files(query, '/Users/backoffice')  # Remplace par le chemin de base
 
-        log_text.pack_forget()  # Cacher la zone des logs
-
         result_text.delete(1.0, tk.END)
+        log_text.pack_forget()  # Cacher la zone des logs après la recherche
 
         if results:
             for name, path, description in results:
-                result_text.insert(tk.END, f"Nom: {name}\nChemin: {path}\nDescription: {description}\n\n", ("link", path))
+                result_text.insert(tk.END, f"Nom: ", ("link_name", path))
+                result_text.insert(tk.END, f"{name}\n", ("link_name", path))
+                result_text.insert(tk.END, f"Chemin: {path}\nDescription: {description}\n\n", ("link", path))
         else:
             result_text.insert(tk.END, "Aucun résultat trouvé.")
 
     threading.Thread(target=search_and_display, daemon=True).start()
 
-# Fonction pour ouvrir le dossier correspondant au chemin cliqué
+# Fonction pour ouvrir le dossier ou fichier correspondant au chemin cliqué
 def open_path(event):
     widget = event.widget
     index = widget.index("@%s,%s" % (event.x, event.y))
     start, end = widget.tag_prevrange("link", index)
+    path = widget.get(start, end)
+    if os.path.exists(path):
+        webbrowser.open('file://' + os.path.dirname(path))
+
+# Fonction pour ouvrir le dossier ou fichier correspondant au nom cliqué
+def open_name(event):
+    widget = event.widget
+    index = widget.index("@%s,%s" % (event.x, event.y))
+    start, end = widget.tag_prevrange("link_name", index)
     path = widget.get(start, end)
     if os.path.exists(path):
         webbrowser.open('file://' + os.path.dirname(path))
@@ -95,10 +105,10 @@ def start_gui():
     result_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
 
     # Création d'un widget Text pour afficher les résultats
-    result_text = tk.Text(result_frame, wrap=tk.WORD)
+    result_text = tk.Text(result_frame, wrap=tk.WORD, fg="green")
     result_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-    result_text.tag_configure("link", foreground="blue", underline=True)
-    result_text.bind("<Button-1>", open_path)
+    result_text.bind("<Button-1>", open_name)
+    result_text.bind("<Button-1>", open_path, add="+")
 
     # Ajout d'une barre de défilement verticale
     scrollbar = tk.Scrollbar(result_frame, orient=tk.VERTICAL, command=result_text.yview)
