@@ -2,7 +2,6 @@ import os
 import spacy
 import tkinter as tk
 from tkinter import ttk
-from tkinter import messagebox
 import threading
 import webbrowser
 
@@ -15,51 +14,54 @@ def process_query(query):
     tokens = [token.lemma_ for token in doc if not token.is_stop]
     return tokens
 
-# Fonction pour rechercher les fichiers directement sur la machine
-def search_files_on_disk(base_path, query):
+# Fonction pour rechercher les fichiers et dossiers sur la machine
+def search_files(query, base_path):
     tokens = process_query(query)
     results = []
-
     for root, dirs, files in os.walk(base_path):
-        for file in files:
+        for name in dirs + files:
             for token in tokens:
-                if token.lower() in file.lower():
-                    results.append((file, os.path.join(root, file)))
-                    break  # Arrêter après le premier token trouvé
-
+                if token.lower() in name.lower():
+                    path = os.path.join(root, name)
+                    description = f"Un {'dossier' if os.path.isdir(path) else 'fichier'} trouvé dans {root}"
+                    results.append((name, path, description))
+                    break
     return results
 
 # Fonction pour gérer la recherche et afficher les résultats
 def perform_search():
     query = entry.get()
-    result_text.delete(1.0, tk.END)
     log_text.delete(1.0, tk.END)
-    
-    log_text.insert(tk.END, "Démarrage de la recherche...\n", "log")
-    
-    results = search_files_on_disk('/Users/backoffice', query)
+    log_text.insert(tk.END, "Recherche en cours...\n", "log")
 
-    if results:
-        log_text.insert(tk.END, "Recherche terminée. Affichage des résultats.\n", "log")
-        for result in results:
-            result_text.insert(tk.END, f"{result[0]}\n", "link")
-            result_text.tag_bind("link", "<Button-1>", lambda e, path=result[1]: open_file_location(path))
-    else:
-        log_text.insert(tk.END, "Aucun résultat trouvé.\n", "log")
-        result_text.insert(tk.END, "Aucun résultat trouvé.")
+    # Lancer la recherche en arrière-plan
+    def search_and_display():
+        results = search_files(query, '/Users/backoffice')  # Remplace par le chemin de base
 
-    root.update_idletasks()
+        log_text.pack_forget()  # Cacher la zone des logs
 
-# Fonction pour ouvrir l'emplacement du fichier
-def open_file_location(path):
-    try:
-        webbrowser.open(f'file://{path}')
-    except Exception as e:
-        messagebox.showerror("Erreur", f"Impossible d'ouvrir l'emplacement du fichier: {e}")
+        result_text.delete(1.0, tk.END)
+
+        if results:
+            for name, path, description in results:
+                result_text.insert(tk.END, f"Nom: {name}\nChemin: {path}\nDescription: {description}\n\n", ("link", path))
+        else:
+            result_text.insert(tk.END, "Aucun résultat trouvé.")
+
+    threading.Thread(target=search_and_display, daemon=True).start()
+
+# Fonction pour ouvrir le dossier correspondant au chemin cliqué
+def open_path(event):
+    widget = event.widget
+    index = widget.index("@%s,%s" % (event.x, event.y))
+    start, end = widget.tag_prevrange("link", index)
+    path = widget.get(start, end)
+    if os.path.exists(path):
+        webbrowser.open('file://' + os.path.dirname(path))
 
 # Fonction pour lancer la fenêtre Tkinter
 def start_gui():
-    global root, entry, result_text, log_text
+    global entry, log_text, result_text
 
     # Création de la fenêtre Tkinter
     root = tk.Tk()
@@ -83,21 +85,22 @@ def start_gui():
 
     # Création du cadre pour les logs
     log_frame = tk.Frame(main_frame)
-    log_frame.pack(fill=tk.BOTH, padx=10, pady=10)
-
-    # Création d'un widget Text pour afficher les logs
-    log_text = tk.Text(log_frame, height=5, wrap=tk.WORD, fg='green')
-    log_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+    log_frame.pack(fill=tk.X, padx=10, pady=10)
+    log_text = tk.Text(log_frame, wrap=tk.WORD, height=2, fg="green")
+    log_text.pack(fill=tk.X, expand=True)
+    log_text.tag_config("log", foreground="green")
 
     # Création du cadre pour les résultats
     result_frame = tk.Frame(main_frame)
     result_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
 
     # Création d'un widget Text pour afficher les résultats
-    result_text = tk.Text(result_frame, wrap=tk.WORD, fg='blue')
+    result_text = tk.Text(result_frame, wrap=tk.WORD)
     result_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+    result_text.tag_configure("link", foreground="blue", underline=True)
+    result_text.bind("<Button-1>", open_path)
 
-    # Ajout d'une barre de défilement verticale pour les résultats
+    # Ajout d'une barre de défilement verticale
     scrollbar = tk.Scrollbar(result_frame, orient=tk.VERTICAL, command=result_text.yview)
     scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
     result_text.config(yscrollcommand=scrollbar.set)
@@ -105,10 +108,6 @@ def start_gui():
     # Assurez-vous que la fenêtre est réactive
     root.update_idletasks()
     root.minsize(root.winfo_width(), root.winfo_height())
-
-    # Configurer les tags pour les liens et les logs
-    result_text.tag_configure("link", foreground="blue", underline=True)
-    log_text.tag_configure("log", foreground="green")
 
     # Lancer la fenêtre Tkinter
     root.mainloop()
