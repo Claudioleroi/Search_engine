@@ -43,9 +43,10 @@ def perform_search():
 
         if results:
             for name, path, description in results:
-                result_text.insert(tk.END, f"Nom: ", ("link_name", path))
-                result_text.insert(tk.END, f"{name}\n", ("link_name", path))
-                result_text.insert(tk.END, f"Chemin: {path}\nDescription: {description}\n\n", ("link", path))
+                result_text.insert(tk.END, f"Nom: {name}\n")
+                result_text.insert(tk.END, f"Chemin: ", ("path", path))
+                result_text.insert(tk.END, f"{path}\n")
+                result_text.insert(tk.END, f"Description: {description}\n\n")
         else:
             result_text.insert(tk.END, "Aucun résultat trouvé.")
 
@@ -55,23 +56,21 @@ def perform_search():
 def open_path(event):
     widget = event.widget
     index = widget.index("@%s,%s" % (event.x, event.y))
-    start, end = widget.tag_prevrange("link", index)
-    path = widget.get(start, end)
+    start, end = widget.tag_prevrange("path", index)
+    path = widget.get(start, end).strip()
     if os.path.exists(path):
-        webbrowser.open('file://' + os.path.dirname(path))
+        webbrowser.open('file://' + path)
 
-# Fonction pour ouvrir le dossier ou fichier correspondant au nom cliqué
-def open_name(event):
-    widget = event.widget
-    index = widget.index("@%s,%s" % (event.x, event.y))
-    start, end = widget.tag_prevrange("link_name", index)
-    path = widget.get(start, end)
-    if os.path.exists(path):
-        webbrowser.open('file://' + os.path.dirname(path))
+# Fonction pour mettre à jour l'état du bouton de recherche
+def update_search_button_state(*args):
+    if entry.get().strip():
+        search_button.config(state=tk.NORMAL)
+    else:
+        search_button.config(state=tk.DISABLED)
 
 # Fonction pour lancer la fenêtre Tkinter
 def start_gui():
-    global entry, log_text, result_text
+    global entry, log_text, result_text, search_button
 
     # Création de la fenêtre Tkinter
     root = tk.Tk()
@@ -89,9 +88,11 @@ def start_gui():
     tk.Label(search_frame, text="Entrez le nom ou la description :").pack(side=tk.LEFT)
     entry = tk.Entry(search_frame, width=50)
     entry.pack(side=tk.LEFT, padx=5)
+    entry.bind("<KeyRelease>", update_search_button_state)  # Met à jour l'état du bouton
 
     # Bouton pour lancer la recherche
-    tk.Button(search_frame, text="Rechercher", command=perform_search).pack(side=tk.LEFT)
+    search_button = tk.Button(search_frame, text="Rechercher", command=perform_search, state=tk.DISABLED)
+    search_button.pack(side=tk.LEFT)
 
     # Création du cadre pour les logs
     log_frame = tk.Frame(main_frame)
@@ -107,8 +108,7 @@ def start_gui():
     # Création d'un widget Text pour afficher les résultats
     result_text = tk.Text(result_frame, wrap=tk.WORD, fg="green")
     result_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-    result_text.bind("<Button-1>", open_name)
-    result_text.bind("<Button-1>", open_path, add="+")
+    result_text.bind("<Button-1>", open_path)  # Détecter les clics sur le texte du chemin
 
     # Ajout d'une barre de défilement verticale
     scrollbar = tk.Scrollbar(result_frame, orient=tk.VERTICAL, command=result_text.yview)
