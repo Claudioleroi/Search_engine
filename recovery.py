@@ -29,7 +29,7 @@ class RecoveryApp:
     def recover_file(self):
         selected_file = self.listbox.get(tk.ACTIVE)
         if not selected_file:
-            messagebox.showwarning("Warning", "No file selected")
+            messagebox.showwarning("Warning", "Aucun fichier trouver")
             return
         
         restore_path = filedialog.askdirectory()
